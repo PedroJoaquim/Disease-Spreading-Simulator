@@ -14,8 +14,13 @@ import java.util.*;
 
 public class DSSComputation extends VertexCentricComputation<Object, Object, DSSVertexState, Integer> {
 
+    private double infectionRate;
+    private double recoveryRate;
+
     private int vaccinesNumber;
     private int numberOfFriendsToVaccinate;
+    private int vaccinationEndSuperstep;
+
     private Set<Integer> initialGroupIDs;
 
     private static final String COMPUTATION_PHASE = "computation";
@@ -24,7 +29,7 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
     private static final int VACCINATION_PHASE = 1;
     private static final int INFECTION_PHASE = 2;
 
-    public DSSComputation(Graph<?, ?> graph, ComputationConfig config, int vaccinesNumber, int initialGroupSize, int numberOfFriendsToVaccinate) {
+    public DSSComputation(Graph<?, ?> graph, ComputationConfig config, int vaccinesNumber, int initialGroupSize, int numberOfFriendsToVaccinate, double infectionRate, double recoveryRate) {
         super(graph, config);
 
         assert initialGroupSize > 0 && initialGroupSize <= graph.getVertices().size() && initialGroupSize < vaccinesNumber;
@@ -34,6 +39,8 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
         this.vaccinesNumber = vaccinesNumber;
         this.numberOfFriendsToVaccinate = numberOfFriendsToVaccinate;
         this.initialGroupIDs = randomSet(graph.getVertices().size(), initialGroupSize);
+        this.recoveryRate = recoveryRate;
+        this.infectionRate = infectionRate;
     }
 
     @Override
@@ -63,7 +70,7 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
 
             //switch phases
             if ((computationPhase == VACCINATION_PHASE && this.vaccinesNumber == 0) ||
-                    ((int) globalValues.get(VACCINES_AVAILABLE_PREVIOUS_STEP) == this.vaccinesNumber)){
+                    ((computationPhase == VACCINATION_PHASE)) && ((int) globalValues.get(VACCINES_AVAILABLE_PREVIOUS_STEP) == this.vaccinesNumber)){
 
                 globalValues.put(COMPUTATION_PHASE, INFECTION_PHASE);
                 System.out.println("Vaccination phase terminated, " + this.vaccinesNumber + " remaining");
@@ -80,6 +87,8 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
                 for (ComputationalVertex<?, ?, DSSVertexState, Integer> vertex : list) {
                     sendMessageTo(vertex.getId(), 1);
                 }
+
+                this.vaccinationEndSuperstep = getSuperStep();
             }
         }
 
@@ -88,17 +97,44 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
 
     private void computeInfectionPhase(ComputationalVertex<?, ?, DSSVertexState, Integer> computationalVertex) {
 
-        
+
+        if(getSuperStep() - this.vaccinationEndSuperstep == 3){
+            computationalVertex.voteToHalt();
+
+        } else {
 
 
+            if(computationalVertex.getComputationalValue().isInfected()){
+                if(getBooelanWithProbability(this.recoveryRate)){
+                    //get better
+                    computationalVertex.setComputationalValue(DSSVertexState.SUSCEPTIBLE);
+                } else {
+                    //infect others
 
-        computationalVertex.voteToHalt(); //todo
+                    Iterator<? extends Edge<?>> outEdgesIterator = computationalVertex.getOutEdgesIterator();
+
+                    while (outEdgesIterator.hasNext()){
+                        Edge<?> edge = outEdgesIterator.next();
+
+                        if(getBooelanWithProbability(this.infectionRate)){
+                            sendMessageTo(edge.getTargetIdx(), 1);
+                        }
+                    }
+                }
+
+
+            } else if(computationalVertex.getComputationalValue().isSusceptible() && computationalVertex.getMessages().size() > 1){
+                //got infected
+                computationalVertex.setComputationalValue(DSSVertexState.INFECTED);
+            }
+        }
     }
 
     private void computeVaccinationPhase(ComputationalVertex<?, ?, DSSVertexState, Integer> computationalVertex) {
 
         if ((getSuperStep() == 0 && computationalVertex.getComputationalValue().isImmune()) ||
                 getSuperStep() != 0 && computationalVertex.getComputationalValue().isSusceptible() && computationalVertex.getMessages().size() >= 1) {
+
 
 
             computationalVertex.setComputationalValue(DSSVertexState.IMMUNE);
@@ -165,5 +201,9 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
         }
 
         return result;
+    }
+
+    private boolean getBooelanWithProbability(double probabilityTrue){
+        return Math.random() >= 1.0 - probabilityTrue;
     }
 }

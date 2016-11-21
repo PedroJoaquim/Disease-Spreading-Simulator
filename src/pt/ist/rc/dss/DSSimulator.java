@@ -1,11 +1,14 @@
 package pt.ist.rc.dss;
 
 import pt.ist.rc.dss.analytics.DSSComputation;
+import pt.ist.rc.dss.analytics.DSSVertexState;
 import pt.ist.rc.paragraph.computation.ComputationConfig;
+import pt.ist.rc.paragraph.loader.GraphLoader;
 import pt.ist.rc.paragraph.model.Edge;
 import pt.ist.rc.paragraph.model.Graph;
 import pt.ist.rc.paragraph.model.Vertex;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -15,14 +18,27 @@ import java.util.List;
 public class DSSimulator {
 
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
 
 
-        DSSComputation dssComputation = new DSSComputation(loadGraph(), new ComputationConfig().setNumWorkers(1), 4, 1, 1);
+        Graph<Void, Double> graph = new GraphLoader<Void, Double>().fromFile("datasets/huge.gml", x -> null, x -> null);
+
+        DSSComputation dssComputation = new DSSComputation(graph, new ComputationConfig().setNumWorkers(4), 500, 5, 4, 0.5, 0.0);
         dssComputation.execute();
 
-        //todo halted vertices between computation phases
-        //todo unable to use all vaccines due to lack of friends
+        double numInfected = 0;
+        double numVertices = dssComputation.getVertexComputationalValues().size();
+
+        for (DSSVertexState state:
+             dssComputation.getVertexComputationalValues()) {
+
+            if(state.isInfected()){
+                numInfected++;
+            }
+        }
+
+        System.out.println("Total Number of Vertices: " + numVertices);
+        System.out.println("Total Number of Infected: " +  numInfected + " (" + numInfected/numVertices*100 + "%)");
     }
 
 
