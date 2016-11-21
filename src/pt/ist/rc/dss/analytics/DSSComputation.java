@@ -19,9 +19,10 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
     private Set<Integer> initialGroupIDs;
 
     private static final String COMPUTATION_PHASE = "computation";
+    private static final String VACCINES_AVAILABLE_PREVIOUS_STEP = "vaccines";
+
     private static final int VACCINATION_PHASE = 1;
     private static final int INFECTION_PHASE = 2;
-    private static final int GET_VACCINATED = 3;
 
     public DSSComputation(Graph<?, ?> graph, ComputationConfig config, int vaccinesNumber, int initialGroupSize, int numberOfFriendsToVaccinate) {
         super(graph, config);
@@ -53,14 +54,51 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
 
     }
 
+    @Override
+    protected void masterCompute(List<ComputationalVertex<?, ?, DSSVertexState, Integer>> list, HashMap<String, Object> globalValues) {
+
+        if (getSuperStep() > 0) {
+
+            int computationPhase = (Integer) globalValues.get(COMPUTATION_PHASE);
+
+            //switch phases
+            if ((computationPhase == VACCINATION_PHASE && this.vaccinesNumber == 0) ||
+                    ((int) globalValues.get(VACCINES_AVAILABLE_PREVIOUS_STEP) == this.vaccinesNumber)){
+
+                globalValues.put(COMPUTATION_PHASE, INFECTION_PHASE);
+                System.out.println("Vaccination phase terminated, " + this.vaccinesNumber + " remaining");
+
+                int rndInfected;
+
+                do{
+                    Random rnd = new Random();
+                    rndInfected = rnd.nextInt(getNumVertices());
+                } while(list.get(rndInfected).getComputationalValue().isImmune());
+
+                list.get(rndInfected).setComputationalValue(DSSVertexState.INFECTED);
+
+                for (ComputationalVertex<?, ?, DSSVertexState, Integer> vertex : list) {
+                    sendMessageTo(vertex.getId(), 1);
+                }
+            }
+        }
+
+        globalValues.put(VACCINES_AVAILABLE_PREVIOUS_STEP, this.vaccinesNumber);
+    }
+
     private void computeInfectionPhase(ComputationalVertex<?, ?, DSSVertexState, Integer> computationalVertex) {
+
+        
+
+
+
         computationalVertex.voteToHalt(); //todo
     }
 
     private void computeVaccinationPhase(ComputationalVertex<?, ?, DSSVertexState, Integer> computationalVertex) {
 
         if ((getSuperStep() == 0 && computationalVertex.getComputationalValue().isImmune()) ||
-                getSuperStep() != 0 && computationalVertex.getComputationalValue().isSusceptible() && computationalVertex.getMessages().size() >= 1 && computationalVertex.getMessages().get(0) == GET_VACCINATED) {
+                getSuperStep() != 0 && computationalVertex.getComputationalValue().isSusceptible() && computationalVertex.getMessages().size() >= 1) {
 
 
             computationalVertex.setComputationalValue(DSSVertexState.IMMUNE);
@@ -79,7 +117,7 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
                 Edge<?> edge = outEdgesIterator.next();
 
                 if(friendsToVaccinate.contains(i)){
-                    sendMessageTo(edge.getTargetIdx(), GET_VACCINATED);
+                    sendMessageTo(edge.getTargetIdx(), computationalVertex.getId());
                 }
 
                 i++;
@@ -89,23 +127,12 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
         computationalVertex.voteToHalt();
     }
 
-    @Override
-    protected void masterCompute(Iterator<ComputationalVertex<?, ?, DSSVertexState, Integer>> iterator, HashMap<String, Object> globalValues) {
 
-        if (getSuperStep() > 0) {
-
-            int computationPhase = (Integer) globalValues.get(COMPUTATION_PHASE);
-
-            //switch phases
-            if (computationPhase == VACCINATION_PHASE && this.vaccinesNumber == 0) {
-                globalValues.put(COMPUTATION_PHASE, INFECTION_PHASE);
-            }
-        }
-    }
 
     @Override
     protected void initializeGlobalObjects(HashMap<String, Object> globalValues) {
         globalValues.put(COMPUTATION_PHASE, VACCINATION_PHASE);
+        globalValues.put(VACCINES_AVAILABLE_PREVIOUS_STEP, this.vaccinesNumber);
     }
 
     /*
