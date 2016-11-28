@@ -18,22 +18,22 @@ import java.util.*;
 public class DSSimulator {
 
 
-    public final static double INFECTION_RATE = 0.5;
-    public final static double RECOVERY_RATE = 0.05;
+    public final static double INFECTION_RATE = 0.15;
+    public final static double RECOVERY_RATE = 0.4;
     public final static int VACCINES_NUMBER = 0;
     public final static int INITIAL_GROUP_TO_VACCINATE = 0;
     public final static int NUMBER_OF_FRIENDS_TO_VACCINATE = 1;
     public final static int NUMBER_OF_SUPERTEPS_OF_INFECTION = 30;
     public final static int NUMBER_OF_INITIAL_INFECTED = 1;
-    public final static int NUMBER_OF_SIMULATIONS = 15;
+    public final static int NUMBER_OF_SIMULATIONS = 2;
 
     public static void main(String[] args) throws IOException {
 
         long startTime = System.currentTimeMillis();
 
-        Graph<Void, Double> graph = new GraphLoader<Void, Double>().fromFile("datasets/soc-pokec-relationships.txt", x -> null, x -> null, "directed");
+        Graph<Void, Double> graph = new GraphLoader<Void, Double>().fromFile("D:\\GitHub\\Disease-Spreading-Simulator\\datasets\\soc-pokec-relationships.txt", x -> null, x -> null, "directed");
 
-        DSSVertexState[][] results = new DSSVertexState[graph.getVertices().size()][NUMBER_OF_SIMULATIONS];
+        int recovered[] = new int[NUMBER_OF_SIMULATIONS];
 
 
         for (int i = 0; i < NUMBER_OF_SIMULATIONS ; i++) {
@@ -53,75 +53,30 @@ public class DSSimulator {
 
             dssComputation = null;
 
+            int recoveredTMP = 0;
+
             for (int j = 0; j < graph.getVertices().size(); j++) {
-                results[j][i] = vertexComputationalValues.get(j);
+                if(vertexComputationalValues.get(j).isRecovered()){
+                    recoveredTMP++;
+                }
             }
+
+            recovered[i] = recoveredTMP;
+            System.out.println("RECOVERED: " + recoveredTMP + " (" + recoveredTMP/graph.getVertices().size()*100 + "%)");
         }
 
         System.out.println("Starting Analytics");
 
-        double[] resultProbability = new double[graph.getVertices().size()];
 
-        for (int i = 0; i < graph.getVertices().size(); i++) {
+        double recoveredAVG = 0;
 
-            double numInfectedStates = 0;
-
-            for (int j = 0; j < NUMBER_OF_SIMULATIONS; j++) {
-
-                if(results[i][j].isInfected() || results[i][j].isRecovered()){
-                    numInfectedStates++;
-                }
-            }
-
-            resultProbability[i] = numInfectedStates/NUMBER_OF_SIMULATIONS;
+        for (int i = 0; i < NUMBER_OF_SIMULATIONS; i++) {
+            recoveredAVG += recovered[i];
         }
 
-        int[] resultsPerClass = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        recoveredAVG = recoveredAVG/NUMBER_OF_SIMULATIONS;
 
-        for (double p : resultProbability) {
-
-            double prob = p * 100;
-            int index = 0;
-
-            if(prob >= 0 && prob < 10){
-                index = 0;
-            } else if(prob < 20) {
-                index = 1;
-            } else if(prob < 30){
-                index = 2;
-            } else if(prob < 40){
-                index = 3;
-            } else if(prob < 50){
-                index = 4;
-            } else if(prob < 60){
-                index = 5;
-            } else if(prob < 70){
-                index = 6;
-            } else if(prob < 80){
-                index = 7;
-            } else if(prob < 90){
-                index = 8;
-            } else if(prob <= 100){
-                index = 9;
-            }
-
-            resultsPerClass[index]++;
-
-        }
-
-        double numVertices = graph.getVertices().size();
-
-        System.out.println("[0%, 10%[ ---> " + resultsPerClass[0] + " (" + ((double)resultsPerClass[0]/numVertices) * 100.0 + " %)");
-        System.out.println("[10%, 20%[ ---> " + resultsPerClass[1] + " (" + ((double)resultsPerClass[1]/numVertices) * 100.0 + " %)");
-        System.out.println("[20%, 30%[ ---> " + resultsPerClass[2] + " (" + ((double)resultsPerClass[2]/numVertices) * 100.0 + " %)");
-        System.out.println("[30%, 40%[ ---> " + resultsPerClass[3] + " (" + ((double)resultsPerClass[3]/numVertices) * 100.0 + " %)");
-        System.out.println("[40%, 50%[ ---> " + resultsPerClass[4] + " (" + ((double)resultsPerClass[4]/numVertices) * 100.0 + " %)");
-        System.out.println("[50%, 60%[ ---> " + resultsPerClass[5] + " (" + ((double)resultsPerClass[5]/numVertices) * 100.0 + " %)");
-        System.out.println("[60%, 70%[ ---> " + resultsPerClass[6] + " (" + ((double)resultsPerClass[6]/numVertices) * 100.0 + " %)");
-        System.out.println("[70%, 80%[ ---> " + resultsPerClass[7] + " (" + ((double)resultsPerClass[7]/numVertices) * 100.0 + " %)");
-        System.out.println("[80%, 90%[ ---> " + resultsPerClass[8] + " (" + ((double)resultsPerClass[8]/numVertices) * 100.0 + " %)");
-        System.out.println("[90%, 100%] ---> " + resultsPerClass[9] + " (" + ((double)resultsPerClass[9]/numVertices) * 100.0 + " %)");
-
+        System.out.println("Recovered AVG = " + recoveredAVG + " (" + recoveredAVG/graph.getVertices().size()*100 +" %)");
 
         long stopTime = System.currentTimeMillis();
         long elapsedTime = stopTime - startTime;

@@ -115,11 +115,12 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
 
         globalValues.put(VACCINES_AVAILABLE_PREVIOUS_STEP, this.vaccinesNumber);
 
+        /*
         double numInfected = 0;
         double numVertices = list.size();
 
         for (ComputationalVertex<?, ?, DSSVertexState, Integer> vertex:
-             list) {
+                list) {
 
             if(vertex.getComputationalValue().isInfected()){
                 numInfected++;
@@ -127,46 +128,42 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
         }
 
         System.out.println("[SUPERSTEP "  + getSuperStep() + "] Total Number of Infected: " +  numInfected + " (" + numInfected/numVertices*100 + "%)");
+        */
 
+        System.out.println("[SUPERSTEP "  + getSuperStep() + "]");
     }
 
     private void computeInfectionPhase(ComputationalVertex<?, ?, DSSVertexState, Integer> computationalVertex) {
 
 
-         if(getSuperStep() - this.vaccinationEndSuperstep > this.infectionNumberOfSupersteps){
+        if(computationalVertex.getComputationalValue().isInfected()){
 
-            computationalVertex.voteToHalt();
+                //infect others
+                Iterator<? extends Edge<?>> outEdgesIterator = computationalVertex.getOutEdgesIterator();
 
-        } else {
+                while (outEdgesIterator.hasNext()){
+                    Edge<?> edge = outEdgesIterator.next();
 
-            if(computationalVertex.getComputationalValue().isInfected()){
-                if(getBooelanWithProbability(this.recoveryRate)){
-                    //get better
-                    computationalVertex.setComputationalValue(DSSVertexState.RECOVERED);
-                    computationalVertex.voteToHalt();
-
-                } else {
-                    //infect others
-
-                    Iterator<? extends Edge<?>> outEdgesIterator = computationalVertex.getOutEdgesIterator();
-
-                    while (outEdgesIterator.hasNext()){
-                        Edge<?> edge = outEdgesIterator.next();
-
-                        if(getBooelanWithProbability(this.infectionRate)){
-                            sendMessageTo(edge.getTargetIdx(), 2);
-                        }
+                    if(getBooelanWithProbability(this.infectionRate)){
+                        sendMessageTo(edge.getTargetIdx(), 2);
                     }
-                }
 
-
-            } else if(computationalVertex.getComputationalValue().isSusceptible() && computationalVertex.getMessages().size() >= 1){
-                //got infected
-                computationalVertex.setComputationalValue(DSSVertexState.INFECTED);
-            } else {
-                computationalVertex.voteToHalt();
             }
+
+            if(getBooelanWithProbability(this.recoveryRate)){
+                //get better
+                computationalVertex.setComputationalValue(DSSVertexState.RECOVERED);
+                computationalVertex.voteToHalt();
+
+            }
+
+        } else if(computationalVertex.getComputationalValue().isSusceptible() && computationalVertex.getMessages().size() >= 1){
+            //got infected
+            computationalVertex.setComputationalValue(DSSVertexState.INFECTED);
+        } else {
+            computationalVertex.voteToHalt();
         }
+
     }
 
     private void computeVaccinationPhase(ComputationalVertex<?, ?, DSSVertexState, Integer> computationalVertex) {
