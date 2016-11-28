@@ -5,7 +5,7 @@ package pt.ist.rc.dss.analytics;
  */
 public enum  DSSVertexState {
 
-    IMMUNE, SUSCEPTIBLE, INFECTED;
+    IMMUNE, SUSCEPTIBLE, INFECTED, RECOVERED;
 
     public boolean isImmune(){
         return this == IMMUNE;
@@ -17,5 +17,9 @@ public enum  DSSVertexState {
 
     public boolean isInfected(){
         return this == INFECTED;
+    }
+
+    public boolean isRecovered(){
+        return this == RECOVERED;
     }
 }
