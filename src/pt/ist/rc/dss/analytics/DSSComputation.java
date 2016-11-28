@@ -81,11 +81,11 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
         int computationPhase = (Integer) globalValues.get(COMPUTATION_PHASE);
 
 
-        if (computationPhase == VACCINATION_PHASE && (getSuperStep() > 0) || (getSuperStep() == 0 && this.vaccinesNumber == 0)) {
+        if ((computationPhase == VACCINATION_PHASE && getSuperStep() > 0) || (getSuperStep() == 0 && this.vaccinesNumber == 0)) {
 
             //switch phases
             if ((computationPhase == VACCINATION_PHASE && this.vaccinesNumber == 0) ||
-                    ((computationPhase == VACCINATION_PHASE)) && ((int) globalValues.get(VACCINES_AVAILABLE_PREVIOUS_STEP) == this.vaccinesNumber)){
+                    ((computationPhase == VACCINATION_PHASE) && ((int) globalValues.get(VACCINES_AVAILABLE_PREVIOUS_STEP) == this.vaccinesNumber))){
 
                 globalValues.put(COMPUTATION_PHASE, INFECTION_PHASE);
 
@@ -99,17 +99,15 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
                         Random rnd = new Random();
                         rndInfected = rnd.nextInt(getNumVertices());
                         cVertex = list.get(rndInfected);
-                    } while(!cVertex.getComputationalValue().isSusceptible());
+                    } while(!cVertex.getComputationalValue().isSusceptible() || cVertex.getNumberOutEdges() < 5);
 
                     cVertex.setComputationalValue(DSSVertexState.INFECTED);
-                //    System.out.println("Initial Infected: " + rndInfected + " with " + cVertex.getNumberOutEdges());
 
                     this.numberOfInitialInfected--;
-                } while (this.numberOfInitialInfected != 0);
+                    sendMessageTo(cVertex.getId(), 1);
+                    System.out.println("Initial Infected: " + rndInfected + " with " + cVertex.getNumberOutEdges());
 
-                for (ComputationalVertex<?, ?, DSSVertexState, Integer> vertex : list) {
-                    sendMessageTo(vertex.getId(), 1);
-                }
+                } while (this.numberOfInitialInfected != 0);
 
                 this.vaccinationEndSuperstep = getSuperStep();
             }
@@ -135,7 +133,8 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
     private void computeInfectionPhase(ComputationalVertex<?, ?, DSSVertexState, Integer> computationalVertex) {
 
 
-        if(getSuperStep() - this.vaccinationEndSuperstep == this.infectionNumberOfSupersteps){
+         if(getSuperStep() - this.vaccinationEndSuperstep > this.infectionNumberOfSupersteps){
+
             computationalVertex.voteToHalt();
 
         } else {
@@ -143,7 +142,7 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
             if(computationalVertex.getComputationalValue().isInfected()){
                 if(getBooelanWithProbability(this.recoveryRate)){
                     //get better
-                    computationalVertex.setComputationalValue(DSSVertexState.SUSCEPTIBLE);
+                    computationalVertex.setComputationalValue(DSSVertexState.RECOVERED);
                     computationalVertex.voteToHalt();
 
                 } else {
@@ -155,15 +154,17 @@ public class DSSComputation extends VertexCentricComputation<Object, Object, DSS
                         Edge<?> edge = outEdgesIterator.next();
 
                         if(getBooelanWithProbability(this.infectionRate)){
-                            sendMessageTo(edge.getTargetIdx(), 1);
+                            sendMessageTo(edge.getTargetIdx(), 2);
                         }
                     }
                 }
 
 
-            } else if(computationalVertex.getComputationalValue().isSusceptible() && computationalVertex.getMessages().size() > 1){
+            } else if(computationalVertex.getComputationalValue().isSusceptible() && computationalVertex.getMessages().size() >= 1){
                 //got infected
                 computationalVertex.setComputationalValue(DSSVertexState.INFECTED);
+            } else {
+                computationalVertex.voteToHalt();
             }
         }
     }
