@@ -1,13 +1,11 @@
 package pt.ist.rc.dss;
 
 import pt.ist.rc.dss.analytics.DSSComputation;
-import pt.ist.rc.dss.analytics.DSSVertexState;
-import pt.ist.rc.paragraph.analytics.ConnectedComponentsComputation;
+import pt.ist.rc.dss.analytics.DSSVertexInfo;
 import pt.ist.rc.paragraph.computation.ComputationConfig;
 import pt.ist.rc.paragraph.loader.GraphLoader;
-import pt.ist.rc.paragraph.model.Edge;
 import pt.ist.rc.paragraph.model.Graph;
-import pt.ist.rc.paragraph.model.Vertex;
+
 
 import java.io.IOException;
 import java.util.*;
@@ -18,111 +16,60 @@ import java.util.*;
 public class DSSimulator {
 
 
-    public final static double INFECTION_RATE = 0.15;
-    public final static double RECOVERY_RATE = 0.4;
-    public final static int VACCINES_NUMBER = 0;
-    public final static int INITIAL_GROUP_TO_VACCINATE = 0;
-    public final static int NUMBER_OF_FRIENDS_TO_VACCINATE = 1;
-    public final static int NUMBER_OF_SUPERTEPS_OF_INFECTION = 30;
+    public final static double[] INFECTION_RATE_ARRAY = {.005, .01, .015, .02, .025, .03, .035, .04, .045, .05,  .055, .06, .065, .07, .075, .08, .085, .09, .095, .1, .12, .16, .2, .25, .3, .4, .5, .6, .7, .8, .9, 1};
+    public final static double RECOVERY_RATE = 0.40;
+    public final static int VACCINES_NUMBER = 350000;
+    public final static int INITIAL_GROUP_TO_VACCINATE = 100000;
     public final static int NUMBER_OF_INITIAL_INFECTED = 1;
-    public final static int NUMBER_OF_SIMULATIONS = 2;
+    public final static int NUMBER_OF_SIMULATIONS = 50;
 
     public static void main(String[] args) throws IOException {
 
-        long startTime = System.currentTimeMillis();
-
-        Graph<Void, Double> graph = new GraphLoader<Void, Double>().fromFile("D:\\GitHub\\Disease-Spreading-Simulator\\datasets\\soc-pokec-relationships.txt", x -> null, x -> null, "directed");
+        Graph<Void, Double> graph = new GraphLoader<Void, Double>().fromFile("D:\\Documents\\GitHub\\Disease-Spreading-Simulator\\datasets\\soc-pokec-relationships.txt", x -> null, x -> null, "directed");
 
         int recovered[] = new int[NUMBER_OF_SIMULATIONS];
 
+        for (int y = 0; y < INFECTION_RATE_ARRAY.length; y++) {
 
-        for (int i = 0; i < NUMBER_OF_SIMULATIONS ; i++) {
+            System.out.println("SIMULATING WITH INFECTION RATE = " + INFECTION_RATE_ARRAY[y]);
 
-            DSSComputation dssComputation = new DSSComputation(graph, new ComputationConfig().setNumWorkers(4),
-                    VACCINES_NUMBER,
-                    INITIAL_GROUP_TO_VACCINATE,
-                    NUMBER_OF_FRIENDS_TO_VACCINATE,
-                    INFECTION_RATE,
-                    RECOVERY_RATE,
-                    NUMBER_OF_SUPERTEPS_OF_INFECTION,
-                    NUMBER_OF_INITIAL_INFECTED);
+            for (int i = 0; i < NUMBER_OF_SIMULATIONS ; i++) {
 
-            dssComputation.execute();
+                DSSComputation dssComputation = new DSSComputation(graph, new ComputationConfig().setNumWorkers(4),
+                        VACCINES_NUMBER,
+                        INITIAL_GROUP_TO_VACCINATE,
+                        INFECTION_RATE_ARRAY[y],
+                        RECOVERY_RATE,
+                        NUMBER_OF_INITIAL_INFECTED);
 
-            List<DSSVertexState> vertexComputationalValues = dssComputation.getVertexComputationalValues();
+                dssComputation.execute();
 
-            dssComputation = null;
+                List<DSSVertexInfo> vertexComputationalValues = dssComputation.getVertexComputationalValues();
 
-            int recoveredTMP = 0;
+                int recoveredTMP = 0;
 
-            for (int j = 0; j < graph.getVertices().size(); j++) {
-                if(vertexComputationalValues.get(j).isRecovered()){
-                    recoveredTMP++;
+                for (int j = 0; j < graph.getVertices().size(); j++) {
+                    if(vertexComputationalValues.get(j).getState().isRecovered()){
+                        recoveredTMP++;
+                    }
                 }
+
+                recovered[i] = recoveredTMP;
             }
 
-            recovered[i] = recoveredTMP;
-            System.out.println("RECOVERED: " + recoveredTMP + " (" + recoveredTMP/graph.getVertices().size()*100 + "%)");
+            double recoveredAVG = 0;
+
+            for (int i = 0; i < NUMBER_OF_SIMULATIONS; i++) {
+                recoveredAVG += recovered[i];
+            }
+
+            recoveredAVG /= NUMBER_OF_SIMULATIONS;
+
+            System.out.println("********************************************************************************************");
+            System.out.println("Infection Rate = " + INFECTION_RATE_ARRAY[y]);
+            System.out.println("Recovered AVG = " + recoveredAVG + " (" + recoveredAVG/graph.getVertices().size()*100 +" %)");
+            System.out.println("point: " + INFECTION_RATE_ARRAY[y] + ", " + recoveredAVG/graph.getVertices().size()*100);
+            System.out.println("********************************************************************************************");
         }
-
-        System.out.println("Starting Analytics");
-
-
-        double recoveredAVG = 0;
-
-        for (int i = 0; i < NUMBER_OF_SIMULATIONS; i++) {
-            recoveredAVG += recovered[i];
-        }
-
-        recoveredAVG = recoveredAVG/NUMBER_OF_SIMULATIONS;
-
-        System.out.println("Recovered AVG = " + recoveredAVG + " (" + recoveredAVG/graph.getVertices().size()*100 +" %)");
-
-        long stopTime = System.currentTimeMillis();
-        long elapsedTime = stopTime - startTime;
-        System.out.println("time = " + elapsedTime);
     }
-
-    //remove
-    public static Graph<Void, Void> loadGraph() {
-        List<Edge<Void>> vertex0Edges = Arrays.asList(
-                new Edge.Builder<Void>().targetIdx(1).build(),
-                new Edge.Builder<Void>().targetIdx(2).build()
-        );
-
-        List<Edge<Void>> vertex1Edges = Arrays.asList(
-                new Edge.Builder<Void>().targetIdx(0).build(),
-                new Edge.Builder<Void>().targetIdx(2).build()
-        );
-
-        List<Edge<Void>> vertex2Edges = Arrays.asList(
-                new Edge.Builder<Void>().targetIdx(0).build(),
-                new Edge.Builder<Void>().targetIdx(1).build(),
-                new Edge.Builder<Void>().targetIdx(3).build(),
-                new Edge.Builder<Void>().targetIdx(4).build()
-        );
-
-        List<Edge<Void>> vertex3Edges = Arrays.asList(
-                new Edge.Builder<Void>().targetIdx(2).build(),
-                new Edge.Builder<Void>().targetIdx(4).build()
-        );
-
-        List<Edge<Void>> vertex4Edges = Arrays.asList(
-                new Edge.Builder<Void>().targetIdx(3).build(),
-                new Edge.Builder<Void>().targetIdx(2).build()
-        );
-
-
-        List<Vertex<Void, Void>> vertices = Arrays.asList(
-                new Vertex.Builder<Void, Void>().addAllEdges(vertex0Edges).build(),
-                new Vertex.Builder<Void, Void>().addAllEdges(vertex1Edges).build(),
-                new Vertex.Builder<Void, Void>().addAllEdges(vertex2Edges).build(),
-                new Vertex.Builder<Void, Void>().addAllEdges(vertex3Edges).build(),
-                new Vertex.Builder<Void, Void>().addAllEdges(vertex4Edges).build()
-        );
-
-        return new Graph.SimpleBuilder<Void, Void>().addVertices(vertices).build();
-    }
-
-
 }
